@@ -1,0 +1,8 @@
+__default__:
+    time: "40:00"
+    nCPUS: 4
+    memory: 4
+    name: "JOBNAME.{rule}.{wildcards}"
+    output: "{config[log_dir]}/{rule}.{wildcards}.out"
+    error:  "{config[log_dir]}/{rule}.{wildcards}.err"
+    resources: "\"rusage[mem=10] span[hosts=1]\""

@@ -1,0 +1,6 @@
+metadata: 
+    MSK: resources/metadata.MSK.tsv
+    NYGC: resources/metadata.NYGC.tsv
+genome_version: "hg38"
+log_dir: logs
+tmp_dir: tmp
