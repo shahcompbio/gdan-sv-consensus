@@ -1,6 +1,10 @@
 metadata: 
     MSK: resources/metadata.MSK.tsv
     NYGC: resources/metadata.NYGC.tsv
+    Broad: /juno/work/shah/users/chois7/GDAN/DLBCL/downloads/svs/broad/All_Pairs.dRanger_etc.filtered_SV.138_pairs.with_tumor_submitter_id.20_low_purity_samples_removed.in_bedpe_format.tsv
+image:
+    survivor: /juno/work/shah/users/chois7/singularity/sif/survivor.sif
 genome_version: "hg38"
 log_dir: logs
 tmp_dir: tmp
+

@@ -6,16 +6,23 @@ import wgs_analysis.refgenome as refgenome
 if not os.path.exists(config['log_dir']): subprocess.run(f'mkdir -p {config["log_dir"]}', shell=True)
 if not os.path.exists(config['tmp_dir']): subprocess.run(f'mkdir -p {config["tmp_dir"]}', shell=True)
 
-SAMPLES = ['CTSP-B2JI-TTP1-A-1-0-D-A794-36']
+SAMPLES = ['CTSP-AD1H-TTP1-A']
+SOURCES = ['MSK', 'Broad']
 
 rule all:
     input:
-        expand('result/{sample}/{sample}.MSK.bedpe', sample=SAMPLES)
+        expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
+        expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
+        expand("results/{sample}/{sample}.SV_intersection.vcf", sample=SAMPLES),
+        expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
+        expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
+        expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
+        expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
         
 
 def _get_msk_svs_path(wildcards):
     paths = pd.read_table(config['metadata']['MSK'])
-    paths = paths[paths['isabl_sample_id']==wildcards.sample]
+    paths = paths[paths['isabl_sample_id'].str.startswith(wildcards.sample)]
     paths = paths[paths['result_type']=='consensus_calls']
     if paths.shape[0] == 0:
         print(f'No MSK SV results for {sample}')
@@ -27,7 +34,7 @@ def _get_msk_svs_path(wildcards):
 
 def _get_nygc_svs_path(wildcards):
     paths = pd.read_table(config['metadata']['NYGC'])
-    paths = paths[paths['sample']==wildcards.sample]
+    paths = paths[paths['sample'].str.startswith(wildcards.sample)]
     if paths.shape[0] == 0:
         print(f'No NYGC SV results for {sample}')
         return None
@@ -56,6 +63,18 @@ def get_msk_svs(path):
     for sv_col in sv_cols:
         if sv_col not in svs.columns:
             svs[sv_col] = '.'
+    return svs[sv_cols]
+
+def get_broad_svs(path, sample): # tumor_submitter_id      individual      chrom1  start1  end1    chrom2  start2  end2    sv_id   tumreads        strand1 strand2 svclass svmethod
+    sv_cols = ['#chrom1', 'start1', 'end1', 'chrom2', 'start2', 'end2', 
+               'name', 'score', 'strand1', 'strand2', 'type',]
+    col_map = {'chrom1':'#chrom1', 'sv_id':'name', 'tumreads':'score', 'svclass':'type'}
+    svs = pd.read_table(path, sep='\t')
+    svs = svs[svs['tumor_submitter_id']==sample]
+    svs.rename(columns=col_map, inplace=True)
+    svs['type'] = svs['type'].replace({'h2hINV':'INV', 't2tINV':'INV'})
+    svs['#chrom1'] = 'chr'+svs['#chrom1']
+    svs['chrom2'] = 'chr'+svs['chrom2']
     return svs[sv_cols]
 
 def get_nygc_svs(path):
@@ -91,7 +110,7 @@ def _get_sv_type(row):
     else:
         return f'<{svtype}>'
 
-def _get_vcf_meta_and_header(genome_version='hg38'):
+def _get_vcf_meta_and_header(source, genome_version='hg38'):
     # genome_version = 'hg38'
     refgenome.set_genome_version(genome_version)
     chrom_infos = []
@@ -117,13 +136,13 @@ def _get_vcf_meta_and_header(genome_version='hg38'):
 ##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variation">
 ##INFO=<ID=CHR2,Number=1,Type=String,Description="Mate chromsome for BND SVs">
 ##INFO=<ID=STRAND,Number=1,Type=String,Description="Strands of supporting reads for structural variant">'''
-    header_field = ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT', 'SAMPLE']
+    header_field = ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT', source]
     header = '\t'.join(header_field)
     return meta_text, header
 
 def write_vcf_from_bedpe(sv_path, out_vcf, source='MSK'):
     with open(out_vcf, 'w') as out:
-        meta_text, header = _get_vcf_meta_and_header()
+        meta_text, header = _get_vcf_meta_and_header(source=source)
         out.write(meta_text + '\n')
         out.write(header + '\n')
         svs = pd.read_table(sv_path)
@@ -159,10 +178,66 @@ def write_vcf_from_bedpe(sv_path, out_vcf, source='MSK'):
 
 rule make_msk_bedpe:
     input:
-        svs = _get_msk_svs_path
+        svs = _get_msk_svs_path,
     output:
-        bedpe = 'results/{sample}/{sample}.MSK.bedpe'
+        bedpe = 'results/{sample}/{sample}.MSK.bedpe',
     run:
         svs = get_msk_svs(input.svs)
         svs.to_csv(output.bedpe, sep='\t', index=False)
         
+rule make_broad_bedpe:
+    input:
+        svs = config['metadata']['Broad'],
+    output:
+        bedpe = 'results/{sample}/{sample}.Broad.bedpe',
+    run:
+        svs = get_broad_svs(input.svs, wildcards.sample)
+        svs.to_csv(output.bedpe, sep='\t', index=False)
+
+rule make_vcf_from_bedpe:
+    input:
+        bedpe = 'results/{sample}/{sample}.{source}.bedpe',
+    output:
+        vcf = 'results/{sample}/{sample}.{source}.vcf',
+    run:
+        write_vcf_from_bedpe(input.bedpe, output.vcf, source=wildcards.source)
+        
+rule make_vcf_list:
+    input:
+        vcfs = expand('results/{{sample}}/{{sample}}.{source}.vcf', source=SOURCES),
+    output:
+        vcflist = 'results/{sample}/{sample}.vcf_list.txt',
+    run:
+        with open(output.vcflist, 'w') as out:
+            for vcf_path in input.vcfs:
+                out.write(vcf_path + '\n')
+        
+rule run_survivor:
+    input:
+        vcflist = 'results/{sample}/{sample}.vcf_list.txt',
+    output:
+        ivcf = "results/{sample}/{sample}.SV_intersection.vcf",
+        uvcf = "results/{sample}/{sample}.SV_union.vcf",
+    singularity: config['image']['survivor'],
+    params:
+        n_and = len(SOURCES),
+        n_or = 1,
+        diff = 30,
+    shell:
+        """
+        /SURVIVOR/Debug/SURVIVOR merge {input} 200 {params.n_and} 1 1 0 {params.diff} {output.ivcf} &&
+        /SURVIVOR/Debug/SURVIVOR merge {input} 200 {params.n_or}  1 1 0 {params.diff} {output.uvcf}
+        """
+
+rule summarize_survivor:
+    input:
+        uvcf = "results/{sample}/{sample}.SV_union.vcf",
+    output:
+        report = "results/{sample}/{sample}.SV_union.report",
+        venn = "results/{sample}/{sample}.SV_union.venn.png",
+    params:
+        outdir = "results/{sample}",
+    shell:
+        """
+        python scripts/parse_survivor.py -i {input.uvcf} -s {wildcards.sample} -sa Broad -sb MSK -o {params.outdir}
+        """

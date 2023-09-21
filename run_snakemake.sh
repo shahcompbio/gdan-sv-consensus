@@ -12,7 +12,7 @@ cmd="$cmd --cluster \"${CLUSTER_CMD}\""
 cmd="$cmd --cluster-cancel bkill"
 cmd="$cmd --use-singularity"
 cmd="$cmd --singularity-args \"--bind /juno --bind /home\""
-cmd="$cmd --dry-run"
+# cmd="$cmd --dry-run"
 
 echo $cmd
 eval $cmd
