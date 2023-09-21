@@ -1,3 +1,4 @@
+samples_file: resources/samples.txt
 metadata: 
     MSK: resources/metadata.MSK.tsv
     NYGC: resources/metadata.NYGC.tsv

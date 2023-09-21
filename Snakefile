@@ -6,8 +6,24 @@ import wgs_analysis.refgenome as refgenome
 if not os.path.exists(config['log_dir']): subprocess.run(f'mkdir -p {config["log_dir"]}', shell=True)
 if not os.path.exists(config['tmp_dir']): subprocess.run(f'mkdir -p {config["tmp_dir"]}', shell=True)
 
-SAMPLES = ['CTSP-AD1H-TTP1-A']
-SOURCES = ['MSK', 'Broad']
+def _get_samples(config, sources, sample_str_len=16):
+    samples_per_source = {}
+    for source in sources:
+        if source == 'Broad':
+            meta = pd.read_table(config['metadata'][source])
+            samples = set(meta.iloc[:, 0].str.slice(0, sample_str_len))
+        elif source == 'MSK':
+            meta = pd.read_table(config['metadata'][source])
+            samples = set(meta.iloc[:, 1].str.slice(0, sample_str_len))
+        samples_per_source[source] = samples
+    samples_intersection = samples_per_source[sources[0]]
+    for source in sources[1:]:
+        samples_intersection &= samples_per_source[source]
+    return list(samples_intersection)
+
+SOURCES = ['Broad', 'MSK']
+SAMPLES = _get_samples(config, SOURCES)
+print(SAMPLES)
 
 rule all:
     input:
@@ -237,7 +253,8 @@ rule summarize_survivor:
         venn = "results/{sample}/{sample}.SV_union.venn.png",
     params:
         outdir = "results/{sample}",
+        sources = ' '.join(SOURCES),
     shell:
-        """
-        python scripts/parse_survivor.py -i {input.uvcf} -s {wildcards.sample} -sa Broad -sb MSK -o {params.outdir}
-        """
+        'python scripts/parse_survivor.py '
+        '-i {input.uvcf} -o {params.outdir} '
+        '-s {wildcards.sample} --sources {params.sources}'
