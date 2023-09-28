@@ -1,6 +1,10 @@
 import os
+import sys
+import glob
 import subprocess
+
 import pandas as pd
+import pybedtools
 import wgs_analysis.refgenome as refgenome
 
 if not os.path.exists(config['log_dir']): subprocess.run(f'mkdir -p {config["log_dir"]}', shell=True)
@@ -21,9 +25,11 @@ def _get_samples(config, sources, sample_str_len=16):
         samples_intersection &= samples_per_source[source]
     return list(samples_intersection)
 
-SOURCES = ['Broad', 'MSK']
-SAMPLES = _get_samples(config, SOURCES)
-print(SAMPLES)
+SOURCES = ['Broad', 'MSK', 'NYGC']
+SAMPLES = ['CTSP-AD18-TTP1-A'] #_get_samples(config, SOURCES)
+
+wildcard_constraints:
+    source = '|'.join(SOURCES)
 
 rule all:
     input:
@@ -35,50 +41,115 @@ rule all:
         expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
         expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
         
+def get_breakpoint_genes(gtf, brk, fai_path):
+    """Get genes near a breakpoint with strand taken into account
+
+    :param gtf: BedTools GTF
+    :type gtf: pybedtools.bedtool.BedTool
+    :param brk: (chrom, pos, strand) tuple
+    :type gtf: tuple
+    :param fai_path: path to fai file
+    :type fai_path: str
+    ...
+    :return: gene_gtf tuple
+    :rtype: tuple
+    """
+    chrom, pos, strand = brk
+    canon_chroms = set([f'chr{c}' for c in range(1,22+1)] + ['chrX', 'chrY'])
+    if chrom not in canon_chroms: 
+        return np.nan
+    bed = pybedtools.BedTool(f'{chrom} {pos-1} {pos}', from_string=True)
+    if strand == '+':
+        closest = bed.closest(gtf, g=fai_path, 
+                              fu=True, # get upstream
+                              D="a") # report distance from "a[bed]"
+    elif strand == '-':
+        closest = bed.closest(gtf, g=fai_path, 
+                              fd=True, # get upstream
+                              D="a") # report distance from "a[bed]"
+    else:
+        raise ValueError(f'strand={strand} for {brk}')
+    gene_info = [g[-2] for g in closest]
+    gene_name = _extract_gene_name(brk, gene_info)
+    return gene_name
+
+def _extract_gene_name(brk, gene_info):
+    # gene_info[0]
+    # 'gene_id "ENSG00000227160.3"; gene_type "transcribed_unitary_pseudogene"; gene_name "THEM7P"; level 2; hgnc_id "HGNC:50386"; havana_gene "OTTHUMG00000154120.3";'
+    gene_names = [g.split('gene_name "')[1].split('";')[0] for g in gene_info]
+    gene_names = list(set(gene_names))
+    gix = 0
+    if len(gene_names) > 1:
+        print(f'{brk}: more than one gene_names:{gene_names}', file=sys.stderr)
+        gene_names_clean = [g for g in gene_names if g.count('.') == 0 and g.count('-') == 0]
+        if len(gene_names_clean) >= 1:
+            gix = gene_names.index(gene_names_clean[0])
+    elif len(gene_names) == 0:
+        return np.nan
+    gene_name = gene_names[gix]
+    return gene_name
+
+def add_gene_names_to_svs(svs, gtf, fai_path):
+    gene_names = {1:[], 2:[]}
+    svs = svs.copy()
+    for rix, row in svs.iterrows():
+        if rix % 10 == 0: print(f'progress: {rix}/{svs.shape[0]}')
+        chrom1, chrom2 = row['#chrom1'], row['chrom2']
+        pos1, pos2 = row['end1'], row['end2']
+        strand1, strand2 = row['strand1'], row['strand2']
+        svtype = row['type']
+        assert (svtype=='TRA') or (svtype!='TRA' and chrom1==chrom2 and pos1<=pos2), row
+        brks = [(chrom1, pos1, strand1), (chrom2, pos2, strand2)]
+        for ix, brk in enumerate(brks):
+            ix += 1
+            gene_name = get_breakpoint_genes(gtf, brk, fai_path)
+            gene_names[ix].append(gene_name)
+
+    for ix in [1, 2]:
+        svs[f'gene{ix}'] = gene_names[ix]
+    return svs
 
 def _get_msk_svs_path(wildcards):
     paths = pd.read_table(config['metadata']['MSK'])
     paths = paths[paths['isabl_sample_id'].str.startswith(wildcards.sample)]
     paths = paths[paths['result_type']=='consensus_calls']
+    if paths.shape[0] == 1:
+        path = paths['result_filepath'].iloc[0]
+        return path
     if paths.shape[0] == 0:
-        print(f'No MSK SV results for {sample}')
         return None
-    elif paths.shape[0] > 1:
-        raise ValueError(f'paths for {sample}: \n{paths}')
-    path = paths['result_filepath'].iloc[0]
-    return path
-
-def _get_nygc_svs_path(wildcards):
-    paths = pd.read_table(config['metadata']['NYGC'])
-    paths = paths[paths['sample'].str.startswith(wildcards.sample)]
-    if paths.shape[0] == 0:
-        print(f'No NYGC SV results for {sample}')
-        return None
-    elif paths.shape[0] > 1:
-        raise ValueError(f'paths for {sample}: \n{paths}')
-    path = paths['path'].iloc[0]
-    return path
+    else:
+        raise ValueError(f'paths={paths} for sample={wildcards.sample}')
 
 def get_msk_svs(path):
     sv_cols = ['#chrom1', 'start1', 'end1', 'chrom2', 'start2', 'end2', 
                'name', 'score', 'strand1', 'strand2', 'type',]
+    if not path: # None
+        return pd.DataFrame(columns=sv_cols)
     svs = pd.read_csv(path)
     col_map = {
         'chromosome_1': '#chrom1', 'chromosome_2': 'chrom2',
-        'position_1': 'start1', 'position_2': 'start2',
-        'strand_1': 'strand1', 'strand_2': 'strand2',
+        'position_1': 'end1', 'position_2': 'end2',
+        'strand_1': 'strand1', 'strand_2': 'strand2', 'prediction_id': 'name',
     }
     type_map = {
         'duplication': 'DUP', 'deletion': 'DEL', 'inversion': 'INV',
         'translocation': 'TRA', 'insertion': 'INS'
     }
     svs.rename(columns=col_map, inplace=True)
-    svs['end1'] = svs['start1'] + 1
-    svs['end2'] = svs['start2'] + 1
+    svs['start1'] = svs['end1'] - 1
+    svs['start2'] = svs['end2'] - 1
     svs['type'] = svs['type'].map(type_map)
+    svs['name'] = 'MSK' + svs['name']
     for sv_col in sv_cols:
         if sv_col not in svs.columns:
             svs[sv_col] = '.'
+    chrom_same = svs['#chrom1'] == svs['chrom2']
+    pos_reversed = svs['start1'] > svs['start2']
+    rix = chrom_same & pos_reversed
+    brk1_cols = ['#chrom1', 'start1', 'end1', 'strand1']
+    brk2_cols = ['chrom2', 'start2', 'end2', 'strand2']
+    svs.loc[rix, brk1_cols + brk2_cols] = svs.loc[rix, brk2_cols + brk1_cols].values
     return svs[sv_cols]
 
 def get_broad_svs(path, sample): # tumor_submitter_id      individual      chrom1  start1  end1    chrom2  start2  end2    sv_id   tumreads        strand1 strand2 svclass svmethod
@@ -93,16 +164,27 @@ def get_broad_svs(path, sample): # tumor_submitter_id      individual      chrom
     svs['chrom2'] = 'chr'+svs['chrom2']
     return svs[sv_cols]
 
-def get_nygc_svs(path):
+def _get_nygc_svs_path(wildcards):
+    sample2path = {}
+    nygc_sv_dir = config['metadata']['NYGC']
+    paths = glob.glob(f'{nygc_sv_dir}/{wildcards.sample}*.sv.annotated.v7.somatic.high_confidence.final.bedpe')
+    if len(paths) == 1:
+        path = paths[0]
+        return path
+    elif len(paths) == 0:
+        return None
+    else:
+        raise ValueError(f'paths={paths} for sample={wildcards.sample}')
+
+def get_nygc_svs(svs_path):
     sv_cols = ['#chrom1', 'start1', 'end1', 'chrom2', 'start2', 'end2', 
                'name', 'score', 'strand1', 'strand2', 'type', ]
-    svs = pd.read_table(path)
+    svs = pd.read_table(svs_path)
     svs.rename(columns={'#chr1':'#chrom1', 'chr2':'chrom2'}, inplace=True)
+    svs['name'] = svs['tumor--normal'].str.slice(0, 16) + ':' + (svs.index + 1).astype(str)
     for sv_col in sv_cols:
         if sv_col not in svs.columns:
             svs[sv_col] = '.'
-    svs['end1'] = svs['start1'] + 1
-    svs['end2'] = svs['start2'] + 1
     return svs[sv_cols]
 
 def _get_sv_type(row):
@@ -158,7 +240,8 @@ def _get_vcf_meta_and_header(source, genome_version='hg38'):
 
 def write_vcf_from_bedpe(sv_path, out_vcf, source='MSK'):
     with open(out_vcf, 'w') as out:
-        meta_text, header = _get_vcf_meta_and_header(source=source)
+        meta_text, header = _get_vcf_meta_and_header(source=source, 
+                                                     genome_version=config['ref']['genome_version'])
         out.write(meta_text + '\n')
         out.write(header + '\n')
         svs = pd.read_table(sv_path)
@@ -168,10 +251,11 @@ def write_vcf_from_bedpe(sv_path, out_vcf, source='MSK'):
             chrom1, chrom2 = row['#chrom1'], row['chrom2']
             start1, start2 = row['start1'], row['start2']
             strand1, strand2 = row['strand1'], row['strand2']
-            svtype = row['type']
+            gene1, gene2 = row['gene1'], row['gene2']
+            svname, svtype = row['name'], row['type']
             ref = 'N'
             alt = _get_sv_type(row)
-            svid = f'{source}{rix}'
+            svid = f'{svname}__{gene1}__{gene2}'
             if (chrom1 == chrom2):
                 if start2 < start1:
                     start1, start2 = start2, start1
@@ -184,11 +268,12 @@ def write_vcf_from_bedpe(sv_path, out_vcf, source='MSK'):
                 svlen = -svlen
             strands = strand1 + strand2
             info = f'IMPRECISE;SVTYPE={svtype};END={endpos};STRAND={strands};CHR2={chrom2}'
+            info += f';GENE1={gene1};GENE2={gene2};SOURCE={source}'
             qual = 60
             flt = 'PASS'
             fmt = 'GT:DV'
             gt = './.:99'
-            field = [chrom, pos, svid, ref, alt, qual, flt, info, fmt, fmt, gt]
+            field = [chrom, pos, svid, ref, alt, qual, flt, info, fmt, gt]
             field = [str(_) for _ in field]
             out.write('\t'.join(field) + '\n')
 
@@ -199,6 +284,19 @@ rule make_msk_bedpe:
         bedpe = 'results/{sample}/{sample}.MSK.bedpe',
     run:
         svs = get_msk_svs(input.svs)
+        gtf = pybedtools.BedTool(config['ref']['gtf'])
+        svs = add_gene_names_to_svs(svs, gtf, config['ref']['fai'])
+        svs.to_csv(output.bedpe, sep='\t', index=False)
+        
+rule make_nygc_bedpe:
+    input:
+        svs = _get_nygc_svs_path,
+    output:
+        bedpe = 'results/{sample}/{sample}.NYGC.bedpe',
+    run:
+        svs = get_nygc_svs(input.svs)
+        gtf = pybedtools.BedTool(config['ref']['gtf'])
+        svs = add_gene_names_to_svs(svs, gtf, config['ref']['fai'])
         svs.to_csv(output.bedpe, sep='\t', index=False)
         
 rule make_broad_bedpe:
@@ -208,6 +306,8 @@ rule make_broad_bedpe:
         bedpe = 'results/{sample}/{sample}.Broad.bedpe',
     run:
         svs = get_broad_svs(input.svs, wildcards.sample)
+        gtf = pybedtools.BedTool(config['ref']['gtf'])
+        svs = add_gene_names_to_svs(svs, gtf, config['ref']['fai'])
         svs.to_csv(output.bedpe, sep='\t', index=False)
 
 rule make_vcf_from_bedpe:

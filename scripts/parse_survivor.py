@@ -1,7 +1,7 @@
 from collections import Counter
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib_venn import venn2
+from matplotlib_venn import venn2, venn3
 import argparse
 
 def parse_args():
@@ -42,7 +42,7 @@ def get_svs_from_union_vcf(vcf_path, sources):
     membership_count = {s:Counter() for s in svtypes}
     for line in open(vcf_path, 'r'):
         gts = {}
-        members = [0] * len(sources)
+        members = {s: [0] * len(sources) for s in svtypes}
         if line.startswith('##'): continue
         elif line.startswith('#'):
             header = line.rstrip().split('\t')
@@ -58,12 +58,12 @@ def get_svs_from_union_vcf(vcf_path, sources):
             svtype = gts[source]['TY'].split(',')[0]
             region = gts[source]['CO']
             flag_sv_found = int(svtype != 'NaN')
-            if flag_sv_found: svtype_set.add(svtype)
-            members[ix] = flag_sv_found
-        membership = ''.join([str(m) for m in members])
-        assert len(svtype_set) == 1, print(gts, '\n', svtype_set)
-        svtype = list(svtype_set)[0]
-        membership_count[svtype][membership] += 1
+            #if flag_sv_found: svtype_set.add(svtype)
+            if flag_sv_found:
+                members[svtype][ix] = flag_sv_found
+        for svtype in svtypes:
+            membership = ''.join([str(m) for m in members[svtype]])
+            membership_count[svtype][membership] += 1
 
     return dict(membership_count)
 
@@ -94,7 +94,12 @@ def plot_venn(args, membership_count):
         ax = axes[yix][xix]
         ax.set_title(svtype, color=cmap[svtype])
         svtype_set_count = membership_count[svtype]
-        venn2(subsets = svtype_set_count, set_labels=args.sources, ax=ax)
+        if len(args.sources) == 2:
+            venn2(subsets = svtype_set_count, set_labels=args.sources, ax=ax)
+        elif len(args.sources) == 3:
+            venn3(subsets = svtype_set_count, set_labels=args.sources, ax=ax)
+        else:
+            raise ValueError(f'args.sources={args.sources}')
     out_tag = f'{args.sample}.SV_union' 
     png_path = f'{args.outdir}/{out_tag}.venn.png'
     fig.savefig(png_path)
