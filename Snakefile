@@ -12,34 +12,19 @@ import wgs_analysis.refgenome as refgenome
 if not os.path.exists(config['log_dir']): subprocess.run(f'mkdir -p {config["log_dir"]}', shell=True)
 if not os.path.exists(config['tmp_dir']): subprocess.run(f'mkdir -p {config["tmp_dir"]}', shell=True)
 
-def _get_samples(config, sources, sample_str_len=16):
-    samples_per_source = {}
-    for source in sources:
-        if source == 'Broad':
-            meta = pd.read_table(config['metadata'][source])
-            samples = set(meta.iloc[:, 0].str.slice(0, sample_str_len))
-        elif source == 'MSK':
-            meta = pd.read_table(config['metadata'][source])
-            samples = set(meta.iloc[:, 1].str.slice(0, sample_str_len))
-        samples_per_source[source] = samples
-    samples_intersection = samples_per_source[sources[0]]
-    for source in sources[1:]:
-        samples_intersection &= samples_per_source[source]
-    return list(samples_intersection)
-
 CHROMS = ['chr'+str(c) for c in range(1, 22+1)] + ['chrX', 'chrY']
 SOURCES = ['Broad', 'MSK', 'NYGC']
-SAMPLES = ['CTSP-AD18-TTP1-A'] #_get_samples(config, SOURCES)
+SAMPLES = [s.rstrip() for s in open(config['samples_file']).readlines()] #['CTSP-AD18-TTP1-A'] 
+#SAMPLES = ['CTSP-AD18-TTP1-A'] 
 
 wildcard_constraints:
     source = '|'.join(SOURCES)
 
 rule all:
     input:
-        #expand('results/{sample}/{sample}.consensus_stringent.bedpe', sample=SAMPLES),
-        #expand('results/{sample}/{sample}.consensus_lenient.bedpe', sample=STRINGENT),
         'results/gtf/protein_coding.gtf.gz',
         'results/gtf/protein_coding.gtf.gz.tbi',
+        expand('results/{sample}/{sample}.SV_consensus.bedpe', sample=SAMPLES),
         expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
         expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
         expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
@@ -71,7 +56,7 @@ rule filter_gtf:
         gtf = 'results/gtf/protein_coding.gtf.gz',
         tbi = 'results/gtf/protein_coding.gtf.gz.tbi',
     shell:
-        'cat {input.gtf} | grep protein_coding | bgzip -c > {output.gtf} && '
+        'cat {input.gtf} | grep -P "protein_coding|protein_id" | bgzip -c > {output.gtf} && '
         'tabix -f -p gff {output.gtf}'
 
 def _get_msk_svs_path(wildcards):
@@ -211,45 +196,6 @@ rule make_bedpe:
         'python scripts/make_bedpe_from_svs.py -i {input.svs} -o {output.bedpe} '
         '-g {input.gtf} -f {params.fai} -s {wildcards.source} --sample {wildcards.sample}'
         
-#rule make_msk_bedpe:
-#    input:
-#        svs = _get_msk_svs_path,
-#        gtf = 'results/gtf/protein_coding.gtf.gz',
-#    output:
-#        bedpe = 'results/{sample}/{sample}.MSK.bedpe',
-#    run:
-#        svs = get_msk_svs(input.svs)
-#        gtf = pybedtools.BedTool(input.gtf)
-#        tbx = tabix.open(input.gtf)
-#        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
-#        svs.to_csv(output.bedpe, sep='\t', index=False)
-#        
-#rule make_nygc_bedpe:
-#    input:
-#        svs = _get_nygc_svs_path,
-#        gtf = 'results/gtf/protein_coding.gtf.gz',
-#    output:
-#        bedpe = 'results/{sample}/{sample}.NYGC.bedpe',
-#    run:
-#        svs = get_nygc_svs(input.svs)
-#        gtf = pybedtools.BedTool(input.gtf)
-#        tbx = tabix.open(input.gtf)
-#        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
-#        svs.to_csv(output.bedpe, sep='\t', index=False)
-#        
-#rule make_broad_bedpe:
-#    input:
-#        svs = config['metadata']['Broad'],
-#        gtf = 'results/gtf/protein_coding.gtf.gz',
-#    output:
-#        bedpe = 'results/{sample}/{sample}.Broad.bedpe',
-#    run:
-#        svs = get_broad_svs(input.svs, wildcards.sample)
-#        gtf = pybedtools.BedTool(input.gtf)
-#        tbx = tabix.open(input.gtf)
-#        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
-#        svs.to_csv(output.bedpe, sep='\t', index=False)
-
 rule make_vcf_from_bedpe:
     input:
         bedpe = 'results/{sample}/{sample}.{source}.bedpe',
@@ -301,8 +247,9 @@ rule create_consensus_bedpe:
     input:
         vcf = "results/{sample}/{sample}.SV_union.vcf",
     output:
-        stringent = 'results/{sample}/{sample}.consensus_stringent.bedpe',
-        lenient = 'results/{sample}/{sample}.consensus_lenient.bedpe',
+        bedpe = 'results/{sample}/{sample}.SV_consensus.bedpe',
+    params:
+        sources = ' '.join(SOURCES),
     shell:
-        'python scripts/create_consensus_bedpe.py '
-        '-i {input.vcf} -os {output.stringent} -ol {output.lenient}'
+        'python scripts/make_consensus_bedpe.py '
+        '-i {input.vcf} -o {output.bedpe} -s {params.sources}'

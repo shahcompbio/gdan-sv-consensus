@@ -101,7 +101,8 @@ def get_overlapping_genes(tbx, brk):
     :rtype: tuple
     """
     chrom, pos, _ = brk
-    results = tbx.query(chrom, int(pos)-1, pos)
+    pos = int(pos)
+    results = tbx.query(chrom, pos-1, pos)
     gene_info = [g[8] for g in results]
     gene_name = _extract_gene_name(gene_info)
     return gene_name
