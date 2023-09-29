@@ -40,12 +40,12 @@ rule all:
         #expand('results/{sample}/{sample}.consensus_lenient.bedpe', sample=STRINGENT),
         'results/gtf/protein_coding.gtf.gz',
         'results/gtf/protein_coding.gtf.gz.tbi',
-        #expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
-        #expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
-        #expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
-        #expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
-        #expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
-        #expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
+        expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
+        expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
+        expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
+        expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
+        expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
+        expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
         
 rule grep_and_sort_gtf:
     input:
@@ -88,10 +88,10 @@ def get_overlapping_genes(tbx, brk):
     chrom, pos, strand = brk
     results = tbx.query(chrom, int(pos)-1, pos)
     gene_info = [g[8] for g in results if g[8].count('protein_id') > 0]
-    gene_name = _extract_gene_name(brk, gene_info)
+    gene_name = _extract_gene_name(gene_info)
     return gene_name
 
-def get_breakpoint_genes(gtf, brk, fai_path):
+def get_closest_genes(gtf, brk, fai_path):
     """Get genes near a breakpoint with strand taken into account
 
     :param gtf: BedTools GTF
@@ -107,35 +107,37 @@ def get_breakpoint_genes(gtf, brk, fai_path):
     chrom, pos, strand = brk
     canon_chroms = set([f'chr{c}' for c in range(1,22+1)] + ['chrX', 'chrY'])
     if chrom not in canon_chroms: 
-        return np.nan
+        return ''
     bed = pybedtools.BedTool(f'{chrom} {pos-1} {pos}', from_string=True)
     if strand == '+':
-        closest = bed.closest(gtf, g=fai_path, k=100,
+        closest = bed.closest(gtf, g=fai_path,
+                              k=1, # look for one gene
                               fu=True, # get upstream
                               D="a") # report distance from "a[bed]"
     elif strand == '-':
-        closest = bed.closest(gtf, g=fai_path, k=100,
+        closest = bed.closest(gtf, g=fai_path,
+                              k=1, # look for one gene
                               fd=True, # get upstream
                               D="a") # report distance from "a[bed]"
     else:
         raise ValueError(f'strand={strand} for {brk}')
     gene_info = [g[11] for g in closest if g[11].count('protein_id') > 0]
-    gene_name = _extract_gene_name(brk, gene_info)
+    gene_name = _extract_gene_name(gene_info)
     return gene_name
 
-def _extract_gene_name(brk, gene_info):
+def _extract_gene_name(gene_info):
     # gene_info[0]
     # 'gene_id "ENSG00000227160.3"; gene_type "transcribed_unitary_pseudogene"; gene_name "THEM7P"; level 2; hgnc_id "HGNC:50386"; havana_gene "OTTHUMG00000154120.3";'
     gene_names = [g.split('gene_name "')[1].split('";')[0] for g in gene_info]
     gene_names = list(set(gene_names))
     gix = 0
     if len(gene_names) > 1:
-        print(f'{brk}: more than one gene_names:{gene_names}', file=sys.stderr)
+        print(f'{gene_info}: more than one gene_names:{gene_names}', file=sys.stderr)
         gene_names_clean = [g for g in gene_names if g.count('.') == 0 and g.count('-') == 0]
         if len(gene_names_clean) >= 1:
             gix = gene_names.index(gene_names_clean[0])
     elif len(gene_names) == 0:
-        return np.nan
+        return ''
     gene_name = gene_names[gix]
     return gene_name
 
@@ -153,8 +155,8 @@ def add_gene_names_to_svs(svs, gtf, tbx, fai_path):
         for ix, brk in enumerate(brks):
             ix += 1
             gene_name = get_overlapping_genes(tbx, brk)
-            if type(gene_name) != str:
-                gene_name = get_breakpoint_genes(gtf, brk, fai_path)
+            if len(gene_name) > 0: # not ''
+                gene_name = get_closest_genes(gtf, brk, fai_path)
             gene_names[ix].append(gene_name)
 
     for ix in [1, 2]:
@@ -332,36 +334,39 @@ def write_vcf_from_bedpe(sv_path, out_vcf, source='MSK'):
 rule make_msk_bedpe:
     input:
         svs = _get_msk_svs_path,
+        gtf = 'results/gtf/protein_coding.gtf.gz',
     output:
         bedpe = 'results/{sample}/{sample}.MSK.bedpe',
     run:
         svs = get_msk_svs(input.svs)
-        gtf = pybedtools.BedTool(config['ref']['gtf'])
-        tbx = tabix.open(config['ref']['gtf'])
+        gtf = pybedtools.BedTool(input.gtf)
+        tbx = tabix.open(input.gtf)
         svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
         svs.to_csv(output.bedpe, sep='\t', index=False)
         
 rule make_nygc_bedpe:
     input:
         svs = _get_nygc_svs_path,
+        gtf = 'results/gtf/protein_coding.gtf.gz',
     output:
         bedpe = 'results/{sample}/{sample}.NYGC.bedpe',
     run:
         svs = get_nygc_svs(input.svs)
-        gtf = pybedtools.BedTool(config['ref']['gtf'])
-        tbx = tabix.open(config['ref']['gtf'])
+        gtf = pybedtools.BedTool(input.gtf)
+        tbx = tabix.open(input.gtf)
         svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
         svs.to_csv(output.bedpe, sep='\t', index=False)
         
 rule make_broad_bedpe:
     input:
         svs = config['metadata']['Broad'],
+        gtf = 'results/gtf/protein_coding.gtf.gz',
     output:
         bedpe = 'results/{sample}/{sample}.Broad.bedpe',
     run:
         svs = get_broad_svs(input.svs, wildcards.sample)
-        gtf = pybedtools.BedTool(config['ref']['gtf'])
-        tbx = tabix.open(config['ref']['gtf'])
+        gtf = pybedtools.BedTool(input.gtf)
+        tbx = tabix.open(input.gtf)
         svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
         svs.to_csv(output.bedpe, sep='\t', index=False)
 
