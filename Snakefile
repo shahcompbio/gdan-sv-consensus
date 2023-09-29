@@ -3,6 +3,8 @@ import sys
 import glob
 import subprocess
 
+import tabix
+import numpy as np
 import pandas as pd
 import pybedtools
 import wgs_analysis.refgenome as refgenome
@@ -33,14 +35,33 @@ wildcard_constraints:
 
 rule all:
     input:
+        #expand('results/{sample}/{sample}.consensus_stringent.bedpe', sample=SAMPLES),
+        #expand('results/{sample}/{sample}.consensus_lenient.bedpe', sample=STRINGENT),
         expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
         expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
-        expand("results/{sample}/{sample}.SV_intersection.vcf", sample=SAMPLES),
         expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
         expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
         expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
         expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
         
+
+def get_overlapping_genes(tbx, brk):
+    """Get genes overlapping a breakpoint 
+
+    :param tbx: PyTabix GTF
+    :type tbx: pybedtools.bedtool.BedTool
+    :param brk: (chrom, pos, strand) tuple
+    :type brk: tuple
+    ...
+    :return: gene_gtf tuple
+    :rtype: tuple
+    """
+    chrom, pos, strand = brk
+    results = tbx.query(chrom, int(pos)-1, pos)
+    gene_info = [g[8] for g in results if g[8].count('protein_id') > 0]
+    gene_name = _extract_gene_name(brk, gene_info)
+    return gene_name
+
 def get_breakpoint_genes(gtf, brk, fai_path):
     """Get genes near a breakpoint with strand taken into account
 
@@ -60,16 +81,16 @@ def get_breakpoint_genes(gtf, brk, fai_path):
         return np.nan
     bed = pybedtools.BedTool(f'{chrom} {pos-1} {pos}', from_string=True)
     if strand == '+':
-        closest = bed.closest(gtf, g=fai_path, 
+        closest = bed.closest(gtf, g=fai_path, k=10,
                               fu=True, # get upstream
                               D="a") # report distance from "a[bed]"
     elif strand == '-':
-        closest = bed.closest(gtf, g=fai_path, 
+        closest = bed.closest(gtf, g=fai_path, k=10,
                               fd=True, # get upstream
                               D="a") # report distance from "a[bed]"
     else:
         raise ValueError(f'strand={strand} for {brk}')
-    gene_info = [g[-2] for g in closest]
+    gene_info = [g[11] for g in closest if g[11].count('protein_id') > 0]
     gene_name = _extract_gene_name(brk, gene_info)
     return gene_name
 
@@ -89,7 +110,7 @@ def _extract_gene_name(brk, gene_info):
     gene_name = gene_names[gix]
     return gene_name
 
-def add_gene_names_to_svs(svs, gtf, fai_path):
+def add_gene_names_to_svs(svs, gtf, tbx, fai_path):
     gene_names = {1:[], 2:[]}
     svs = svs.copy()
     for rix, row in svs.iterrows():
@@ -102,7 +123,9 @@ def add_gene_names_to_svs(svs, gtf, fai_path):
         brks = [(chrom1, pos1, strand1), (chrom2, pos2, strand2)]
         for ix, brk in enumerate(brks):
             ix += 1
-            gene_name = get_breakpoint_genes(gtf, brk, fai_path)
+            gene_name = get_overlapping_genes(tbx, brk)
+            if type(gene_name) != str:
+                gene_name = get_breakpoint_genes(gtf, brk, fai_path)
             gene_names[ix].append(gene_name)
 
     for ix in [1, 2]:
@@ -140,7 +163,7 @@ def get_msk_svs(path):
     svs['start1'] = svs['end1'] - 1
     svs['start2'] = svs['end2'] - 1
     svs['type'] = svs['type'].map(type_map)
-    svs['name'] = 'MSK' + svs['name']
+    svs['name'] = 'MSK' + svs['name'].astype(str)
     for sv_col in sv_cols:
         if sv_col not in svs.columns:
             svs[sv_col] = '.'
@@ -181,7 +204,7 @@ def get_nygc_svs(svs_path):
                'name', 'score', 'strand1', 'strand2', 'type', ]
     svs = pd.read_table(svs_path)
     svs.rename(columns={'#chr1':'#chrom1', 'chr2':'chrom2'}, inplace=True)
-    svs['name'] = svs['tumor--normal'].str.slice(0, 16) + ':' + (svs.index + 1).astype(str)
+    svs['name'] = svs['tumor--normal'].str.slice(0, 16) + '_' + (svs.index + 1).astype(str)
     for sv_col in sv_cols:
         if sv_col not in svs.columns:
             svs[sv_col] = '.'
@@ -190,7 +213,7 @@ def get_nygc_svs(svs_path):
 def _get_sv_type(row):
     svtype = row['type']
     chrom1, chrom2 = row['#chrom1'], row['chrom2']
-    pos1, pos2 = row['start1'], row['end1']
+    pos1, pos2 = row['end1'], row['end2']
     coord2 = f'{chrom2}:{pos2}'
     strands = f"{row.strand1}{row.strand2}"
     if svtype == 'TRA':
@@ -285,7 +308,8 @@ rule make_msk_bedpe:
     run:
         svs = get_msk_svs(input.svs)
         gtf = pybedtools.BedTool(config['ref']['gtf'])
-        svs = add_gene_names_to_svs(svs, gtf, config['ref']['fai'])
+        tbx = tabix.open(config['ref']['gtf'])
+        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
         svs.to_csv(output.bedpe, sep='\t', index=False)
         
 rule make_nygc_bedpe:
@@ -296,7 +320,8 @@ rule make_nygc_bedpe:
     run:
         svs = get_nygc_svs(input.svs)
         gtf = pybedtools.BedTool(config['ref']['gtf'])
-        svs = add_gene_names_to_svs(svs, gtf, config['ref']['fai'])
+        tbx = tabix.open(config['ref']['gtf'])
+        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
         svs.to_csv(output.bedpe, sep='\t', index=False)
         
 rule make_broad_bedpe:
@@ -307,7 +332,8 @@ rule make_broad_bedpe:
     run:
         svs = get_broad_svs(input.svs, wildcards.sample)
         gtf = pybedtools.BedTool(config['ref']['gtf'])
-        svs = add_gene_names_to_svs(svs, gtf, config['ref']['fai'])
+        tbx = tabix.open(config['ref']['gtf'])
+        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
         svs.to_csv(output.bedpe, sep='\t', index=False)
 
 rule make_vcf_from_bedpe:
@@ -332,8 +358,7 @@ rule run_survivor:
     input:
         vcflist = 'results/{sample}/{sample}.vcf_list.txt',
     output:
-        ivcf = "results/{sample}/{sample}.SV_intersection.vcf",
-        uvcf = "results/{sample}/{sample}.SV_union.vcf",
+        vcf = "results/{sample}/{sample}.SV_union.vcf",
     singularity: config['image']['survivor'],
     params:
         n_and = len(SOURCES),
@@ -341,13 +366,12 @@ rule run_survivor:
         diff = 30,
     shell:
         """
-        /SURVIVOR/Debug/SURVIVOR merge {input} 200 {params.n_and} 1 1 0 {params.diff} {output.ivcf} &&
-        /SURVIVOR/Debug/SURVIVOR merge {input} 200 {params.n_or}  1 1 0 {params.diff} {output.uvcf}
+        /SURVIVOR/Debug/SURVIVOR merge {input} 200 {params.n_or}  1 1 0 {params.diff} {output.vcf}
         """
 
 rule summarize_survivor:
     input:
-        uvcf = "results/{sample}/{sample}.SV_union.vcf",
+        vcf = "results/{sample}/{sample}.SV_union.vcf",
     output:
         report = "results/{sample}/{sample}.SV_union.report",
         venn = "results/{sample}/{sample}.SV_union.venn.png",
@@ -356,5 +380,15 @@ rule summarize_survivor:
         sources = ' '.join(SOURCES),
     shell:
         'python scripts/parse_survivor.py '
-        '-i {input.uvcf} -o {params.outdir} '
+        '-i {input.vcf} -o {params.outdir} '
         '-s {wildcards.sample} --sources {params.sources}'
+
+rule create_consensus_bedpe:
+    input:
+        vcf = "results/{sample}/{sample}.SV_union.vcf",
+    output:
+        stringent = 'results/{sample}/{sample}.consensus_stringent.bedpe',
+        lenient = 'results/{sample}/{sample}.consensus_lenient.bedpe',
+    shell:
+        'python scripts/create_consensus_bedpe.py '
+        '-i {input.vcf} -os {output.stringent} -ol {output.lenient}'
