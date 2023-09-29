@@ -35,7 +35,8 @@ def get_msk_svs(path):
                'name', 'score', 'strand1', 'strand2', 'type',]
     if not path: # None
         return pd.DataFrame(columns=sv_cols)
-    svs = pd.read_csv(path)
+    svs = pd.read_csv(path, dtype={'chromosome_1':str, 'chromosome_2':str, 
+        'position_1':int, 'position_2':int, 'prediction_id':str})
     col_map = {
         'chromosome_1': '#chrom1', 'chromosome_2': 'chrom2',
         'position_1': 'end1', 'position_2': 'end2',
@@ -59,6 +60,7 @@ def get_msk_svs(path):
     brk1_cols = ['#chrom1', 'start1', 'end1', 'strand1']
     brk2_cols = ['chrom2', 'start2', 'end2', 'strand2']
     svs.loc[rix, brk1_cols + brk2_cols] = svs.loc[rix, brk2_cols + brk1_cols].values
+    svs[['start1', 'start2', 'end1', 'end2']] = svs[['start1', 'start2', 'end1', 'end2']].astype(int)
     return svs[sv_cols]
 
 def get_broad_svs(path, sample): # tumor_submitter_id      individual      chrom1  start1  end1    chrom2  start2  end2    sv_id   tumreads        strand1 strand2 svclass svmethod
