@@ -74,95 +74,6 @@ rule filter_gtf:
         'cat {input.gtf} | grep protein_coding | bgzip -c > {output.gtf} && '
         'tabix -f -p gff {output.gtf}'
 
-def get_overlapping_genes(tbx, brk):
-    """Get genes overlapping a breakpoint 
-
-    :param tbx: PyTabix GTF
-    :type tbx: pybedtools.bedtool.BedTool
-    :param brk: (chrom, pos, strand) tuple
-    :type brk: tuple
-    ...
-    :return: gene_gtf tuple
-    :rtype: tuple
-    """
-    chrom, pos, strand = brk
-    results = tbx.query(chrom, int(pos)-1, pos)
-    gene_info = [g[8] for g in results if g[8].count('protein_id') > 0]
-    gene_name = _extract_gene_name(gene_info)
-    return gene_name
-
-def get_closest_genes(gtf, brk, fai_path):
-    """Get genes near a breakpoint with strand taken into account
-
-    :param gtf: BedTools GTF
-    :type gtf: pybedtools.bedtool.BedTool
-    :param brk: (chrom, pos, strand) tuple
-    :type gtf: tuple
-    :param fai_path: path to fai file
-    :type fai_path: str
-    ...
-    :return: gene_gtf tuple
-    :rtype: tuple
-    """
-    chrom, pos, strand = brk
-    canon_chroms = set([f'chr{c}' for c in range(1,22+1)] + ['chrX', 'chrY'])
-    if chrom not in canon_chroms: 
-        return ''
-    bed = pybedtools.BedTool(f'{chrom} {pos-1} {pos}', from_string=True)
-    if strand == '+':
-        closest = bed.closest(gtf, g=fai_path,
-                              k=1, # look for one gene
-                              fu=True, # get upstream
-                              D="a") # report distance from "a[bed]"
-    elif strand == '-':
-        closest = bed.closest(gtf, g=fai_path,
-                              k=1, # look for one gene
-                              fd=True, # get upstream
-                              D="a") # report distance from "a[bed]"
-    else:
-        raise ValueError(f'strand={strand} for {brk}')
-    gene_info = [g[11] for g in closest if g[11].count('protein_id') > 0]
-    gene_name = _extract_gene_name(gene_info)
-    return gene_name
-
-def _extract_gene_name(gene_info):
-    # gene_info[0]
-    # 'gene_id "ENSG00000227160.3"; gene_type "transcribed_unitary_pseudogene"; gene_name "THEM7P"; level 2; hgnc_id "HGNC:50386"; havana_gene "OTTHUMG00000154120.3";'
-    gene_names = [g.split('gene_name "')[1].split('";')[0] for g in gene_info]
-    gene_names = list(set(gene_names))
-    gix = 0
-    if len(gene_names) > 1:
-        print(f'{gene_info}: more than one gene_names:{gene_names}', file=sys.stderr)
-        gene_names_clean = [g for g in gene_names if g.count('.') == 0 and g.count('-') == 0]
-        if len(gene_names_clean) >= 1:
-            gix = gene_names.index(gene_names_clean[0])
-    elif len(gene_names) == 0:
-        return ''
-    gene_name = gene_names[gix]
-    return gene_name
-
-def add_gene_names_to_svs(svs, gtf, tbx, fai_path):
-    gene_names = {1:[], 2:[]}
-    svs = svs.copy()
-    for rix, row in svs.iterrows():
-        if rix % 10 == 0: print(f'progress: {rix}/{svs.shape[0]}')
-        chrom1, chrom2 = row['#chrom1'], row['chrom2']
-        pos1, pos2 = row['end1'], row['end2']
-        strand1, strand2 = row['strand1'], row['strand2']
-        svtype = row['type']
-        assert (svtype=='TRA') or (svtype!='TRA' and chrom1==chrom2 and pos1<=pos2), row
-        brks = [(chrom1, pos1, strand1), (chrom2, pos2, strand2)]
-        for ix, brk in enumerate(brks):
-            ix += 1
-            gene_name = get_overlapping_genes(tbx, brk)
-            if len(gene_name) > 0: # not ''
-                gene_name = get_closest_genes(gtf, brk, fai_path)
-            gene_names[ix].append(gene_name)
-
-    for ix in [1, 2]:
-        svs[f'gene{ix}'] = gene_names[ix]
-    return svs
-
 def _get_msk_svs_path(wildcards):
     paths = pd.read_table(config['metadata']['MSK'])
     paths = paths[paths['isabl_sample_id'].str.startswith(wildcards.sample)]
@@ -175,49 +86,6 @@ def _get_msk_svs_path(wildcards):
     else:
         raise ValueError(f'paths={paths} for sample={wildcards.sample}')
 
-def get_msk_svs(path):
-    sv_cols = ['#chrom1', 'start1', 'end1', 'chrom2', 'start2', 'end2', 
-               'name', 'score', 'strand1', 'strand2', 'type',]
-    if not path: # None
-        return pd.DataFrame(columns=sv_cols)
-    svs = pd.read_csv(path)
-    col_map = {
-        'chromosome_1': '#chrom1', 'chromosome_2': 'chrom2',
-        'position_1': 'end1', 'position_2': 'end2',
-        'strand_1': 'strand1', 'strand_2': 'strand2', 'prediction_id': 'name',
-    }
-    type_map = {
-        'duplication': 'DUP', 'deletion': 'DEL', 'inversion': 'INV',
-        'translocation': 'TRA', 'insertion': 'INS'
-    }
-    svs.rename(columns=col_map, inplace=True)
-    svs['start1'] = svs['end1'] - 1
-    svs['start2'] = svs['end2'] - 1
-    svs['type'] = svs['type'].map(type_map)
-    svs['name'] = 'MSK' + svs['name'].astype(str)
-    for sv_col in sv_cols:
-        if sv_col not in svs.columns:
-            svs[sv_col] = '.'
-    chrom_same = svs['#chrom1'] == svs['chrom2']
-    pos_reversed = svs['start1'] > svs['start2']
-    rix = chrom_same & pos_reversed
-    brk1_cols = ['#chrom1', 'start1', 'end1', 'strand1']
-    brk2_cols = ['chrom2', 'start2', 'end2', 'strand2']
-    svs.loc[rix, brk1_cols + brk2_cols] = svs.loc[rix, brk2_cols + brk1_cols].values
-    return svs[sv_cols]
-
-def get_broad_svs(path, sample): # tumor_submitter_id      individual      chrom1  start1  end1    chrom2  start2  end2    sv_id   tumreads        strand1 strand2 svclass svmethod
-    sv_cols = ['#chrom1', 'start1', 'end1', 'chrom2', 'start2', 'end2', 
-               'name', 'score', 'strand1', 'strand2', 'type',]
-    col_map = {'chrom1':'#chrom1', 'sv_id':'name', 'tumreads':'score', 'svclass':'type'}
-    svs = pd.read_table(path, sep='\t')
-    svs = svs[svs['tumor_submitter_id']==sample]
-    svs.rename(columns=col_map, inplace=True)
-    svs['type'] = svs['type'].replace({'h2hINV':'INV', 't2tINV':'INV'})
-    svs['#chrom1'] = 'chr'+svs['#chrom1']
-    svs['chrom2'] = 'chr'+svs['chrom2']
-    return svs[sv_cols]
-
 def _get_nygc_svs_path(wildcards):
     sample2path = {}
     nygc_sv_dir = config['metadata']['NYGC']
@@ -229,17 +97,6 @@ def _get_nygc_svs_path(wildcards):
         return None
     else:
         raise ValueError(f'paths={paths} for sample={wildcards.sample}')
-
-def get_nygc_svs(svs_path):
-    sv_cols = ['#chrom1', 'start1', 'end1', 'chrom2', 'start2', 'end2', 
-               'name', 'score', 'strand1', 'strand2', 'type', ]
-    svs = pd.read_table(svs_path)
-    svs.rename(columns={'#chr1':'#chrom1', 'chr2':'chrom2'}, inplace=True)
-    svs['name'] = svs['tumor--normal'].str.slice(0, 16) + '_' + (svs.index + 1).astype(str)
-    for sv_col in sv_cols:
-        if sv_col not in svs.columns:
-            svs[sv_col] = '.'
-    return svs[sv_cols]
 
 def _get_sv_type(row):
     svtype = row['type']
@@ -331,44 +188,67 @@ def write_vcf_from_bedpe(sv_path, out_vcf, source='MSK'):
             field = [str(_) for _ in field]
             out.write('\t'.join(field) + '\n')
 
-rule make_msk_bedpe:
+def _get_sv_path(wildcards):
+    if wildcards.source == 'MSK':
+        path = _get_msk_svs_path(wildcards)
+    elif wildcards.source == 'NYGC':
+        path = _get_nygc_svs_path(wildcards)
+    elif wildcards.source == 'Broad':
+        path = config['metadata']['Broad']
+    else:
+        raise ValueError(f'source={source}')
+    return path
+
+rule make_bedpe:
     input:
-        svs = _get_msk_svs_path,
+        svs = _get_sv_path,
         gtf = 'results/gtf/protein_coding.gtf.gz',
     output:
-        bedpe = 'results/{sample}/{sample}.MSK.bedpe',
-    run:
-        svs = get_msk_svs(input.svs)
-        gtf = pybedtools.BedTool(input.gtf)
-        tbx = tabix.open(input.gtf)
-        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
-        svs.to_csv(output.bedpe, sep='\t', index=False)
+        bedpe = 'results/{sample}/{sample}.{source}.bedpe',
+    params:
+        fai = config['ref']['fai'],
+    shell:
+        'python scripts/make_bedpe_from_svs.py -i {input.svs} -o {output.bedpe} '
+        '-g {input.gtf} -f {params.fai} -s {wildcards.source} --sample {wildcards.sample}'
         
-rule make_nygc_bedpe:
-    input:
-        svs = _get_nygc_svs_path,
-        gtf = 'results/gtf/protein_coding.gtf.gz',
-    output:
-        bedpe = 'results/{sample}/{sample}.NYGC.bedpe',
-    run:
-        svs = get_nygc_svs(input.svs)
-        gtf = pybedtools.BedTool(input.gtf)
-        tbx = tabix.open(input.gtf)
-        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
-        svs.to_csv(output.bedpe, sep='\t', index=False)
-        
-rule make_broad_bedpe:
-    input:
-        svs = config['metadata']['Broad'],
-        gtf = 'results/gtf/protein_coding.gtf.gz',
-    output:
-        bedpe = 'results/{sample}/{sample}.Broad.bedpe',
-    run:
-        svs = get_broad_svs(input.svs, wildcards.sample)
-        gtf = pybedtools.BedTool(input.gtf)
-        tbx = tabix.open(input.gtf)
-        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
-        svs.to_csv(output.bedpe, sep='\t', index=False)
+#rule make_msk_bedpe:
+#    input:
+#        svs = _get_msk_svs_path,
+#        gtf = 'results/gtf/protein_coding.gtf.gz',
+#    output:
+#        bedpe = 'results/{sample}/{sample}.MSK.bedpe',
+#    run:
+#        svs = get_msk_svs(input.svs)
+#        gtf = pybedtools.BedTool(input.gtf)
+#        tbx = tabix.open(input.gtf)
+#        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
+#        svs.to_csv(output.bedpe, sep='\t', index=False)
+#        
+#rule make_nygc_bedpe:
+#    input:
+#        svs = _get_nygc_svs_path,
+#        gtf = 'results/gtf/protein_coding.gtf.gz',
+#    output:
+#        bedpe = 'results/{sample}/{sample}.NYGC.bedpe',
+#    run:
+#        svs = get_nygc_svs(input.svs)
+#        gtf = pybedtools.BedTool(input.gtf)
+#        tbx = tabix.open(input.gtf)
+#        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
+#        svs.to_csv(output.bedpe, sep='\t', index=False)
+#        
+#rule make_broad_bedpe:
+#    input:
+#        svs = config['metadata']['Broad'],
+#        gtf = 'results/gtf/protein_coding.gtf.gz',
+#    output:
+#        bedpe = 'results/{sample}/{sample}.Broad.bedpe',
+#    run:
+#        svs = get_broad_svs(input.svs, wildcards.sample)
+#        gtf = pybedtools.BedTool(input.gtf)
+#        tbx = tabix.open(input.gtf)
+#        svs = add_gene_names_to_svs(svs, gtf, tbx, config['ref']['fai'])
+#        svs.to_csv(output.bedpe, sep='\t', index=False)
 
 rule make_vcf_from_bedpe:
     input:
