@@ -5,7 +5,7 @@ metadata:
     Broad: /juno/work/shah/users/chois7/GDAN/DLBCL/downloads/svs/broad/All_Pairs.dRanger_etc.filtered_SV.138_pairs.with_tumor_submitter_id.20_low_purity_samples_removed.in_bedpe_format.tsv
 ref:
     genome_version: "hg38"
-    gtf: /juno/work/shah/users/chois7/tickets/sarcoma89/refactor/pipeline/resources/tabix_gtf/results/genes.gtf.gz
+    gtf: /juno/work/shah/users/chois7/datasets/GRCh38/genCode/gencode.v44.basic.annotation.gtf.gz
     fai: /juno/work/shah/reference/genomes/refdata-GRCh38-1.0.0/fasta/genome.fa.fai
 image:
     survivor: /juno/work/shah/users/chois7/singularity/sif/survivor.sif
