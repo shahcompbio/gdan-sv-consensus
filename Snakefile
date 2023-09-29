@@ -27,6 +27,7 @@ def _get_samples(config, sources, sample_str_len=16):
         samples_intersection &= samples_per_source[source]
     return list(samples_intersection)
 
+CHROMS = ['chr'+str(c) for c in range(1, 22+1)] + ['chrX', 'chrY']
 SOURCES = ['Broad', 'MSK', 'NYGC']
 SAMPLES = ['CTSP-AD18-TTP1-A'] #_get_samples(config, SOURCES)
 
@@ -37,13 +38,41 @@ rule all:
     input:
         #expand('results/{sample}/{sample}.consensus_stringent.bedpe', sample=SAMPLES),
         #expand('results/{sample}/{sample}.consensus_lenient.bedpe', sample=STRINGENT),
-        expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
-        expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
-        expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
-        expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
-        expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
-        expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
+        'results/gtf/protein_coding.gtf.gz',
+        'results/gtf/protein_coding.gtf.gz.tbi',
+        #expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
+        #expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
+        #expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
+        #expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
+        #expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
+        #expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
         
+rule grep_and_sort_gtf:
+    input:
+        gtf = config['ref']['gtf'],
+    output:
+        chrom_gtf = temp(os.path.join(config['tmp_dir'], '{chrom}.gtf')),
+    shell: 
+        'zcat {input.gtf} | grep -P "^{wildcards.chrom}\t" | '
+        'sort -k4,5 -n > {output.chrom_gtf}'
+
+rule merge_gtf:
+    input:
+        expand(os.path.join(config['tmp_dir'], '{chrom}.gtf'), chrom=CHROMS),
+    output:
+        gtf = 'results/gtf/genes.gtf'
+    shell:
+        'cat {input} > {output.gtf}'
+
+rule filter_gtf:
+    input: 
+        gtf = 'results/gtf/genes.gtf'
+    output: 
+        gtf = 'results/gtf/protein_coding.gtf.gz',
+        tbi = 'results/gtf/protein_coding.gtf.gz.tbi',
+    shell:
+        'cat {input.gtf} | grep protein_coding | bgzip -c > {output.gtf} && '
+        'tabix -f -p gff {output.gtf}'
 
 def get_overlapping_genes(tbx, brk):
     """Get genes overlapping a breakpoint 
@@ -81,11 +110,11 @@ def get_breakpoint_genes(gtf, brk, fai_path):
         return np.nan
     bed = pybedtools.BedTool(f'{chrom} {pos-1} {pos}', from_string=True)
     if strand == '+':
-        closest = bed.closest(gtf, g=fai_path, k=10,
+        closest = bed.closest(gtf, g=fai_path, k=100,
                               fu=True, # get upstream
                               D="a") # report distance from "a[bed]"
     elif strand == '-':
-        closest = bed.closest(gtf, g=fai_path, k=10,
+        closest = bed.closest(gtf, g=fai_path, k=100,
                               fd=True, # get upstream
                               D="a") # report distance from "a[bed]"
     else:
