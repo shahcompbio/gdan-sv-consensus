@@ -1,0 +1,72 @@
+##fileformat=VCFv4.1
+##source=SURVIVOR
+##fileDate=20230929
+##contig=<ID=chr1,length=248956422>
+##contig=<ID=chr10,length=133797422>
+##contig=<ID=chr11,length=135086622>
+##contig=<ID=chr12,length=133275309>
+##contig=<ID=chr13,length=114364328>
+##contig=<ID=chr14,length=107043718>
+##contig=<ID=chr15,length=101991189>
+##contig=<ID=chr16,length=90338345>
+##contig=<ID=chr17,length=83257441>
+##contig=<ID=chr18,length=80373285>
+##contig=<ID=chr19,length=58617616>
+##contig=<ID=chr2,length=242193529>
+##contig=<ID=chr20,length=64444167>
+##contig=<ID=chr21,length=46709983>
+##contig=<ID=chr22,length=50818468>
+##contig=<ID=chr3,length=198295559>
+##contig=<ID=chr4,length=190214555>
+##contig=<ID=chr5,length=181538259>
+##contig=<ID=chr6,length=170805979>
+##contig=<ID=chr7,length=159345973>
+##contig=<ID=chr8,length=145138636>
+##contig=<ID=chr9,length=138394717>
+##contig=<ID=chrX,length=156040895>
+##contig=<ID=chrY,length=57227415>
+##ALT=<ID=DEL,Description="Deletion">
+##ALT=<ID=DUP,Description="Duplication">
+##ALT=<ID=INV,Description="Inversion">
+##ALT=<ID=BND,Description="Translocation">
+##ALT=<ID=INS,Description="Insertion">
+##INFO=<ID=CIEND,Number=2,Type=String,Description="PE confidence interval around END">
+##INFO=<ID=CIPOS,Number=2,Type=String,Description="PE confidence interval around POS">
+##INFO=<ID=CHR2,Number=1,Type=String,Description="Chromosome for END coordinate in case of a translocation">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the structural variant">
+##INFO=<ID=MAPQ,Number=1,Type=Integer,Description="Median mapping quality of paired-ends">
+##INFO=<ID=RE,Number=1,Type=Integer,Description="read support">
+##INFO=<ID=IMPRECISE,Number=0,Type=Flag,Description="Imprecise structural variation">
+##INFO=<ID=PRECISE,Number=0,Type=Flag,Description="Precise structural variation">
+##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of the SV">
+##INFO=<ID=SVMETHOD,Number=1,Type=String,Description="Method for generating this merged VCF file.">
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of the SV.">
+##INFO=<ID=SUPP_VEC,Number=1,Type=String,Description="Vector of supporting samples.">
+##INFO=<ID=SUPP,Number=1,Type=String,Description="Number of samples supporting the variant">
+##INFO=<ID=STRANDS,Number=1,Type=String,Description="Indicating the direction of the reads with respect to the type and breakpoint.">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PSV,Number=1,Type=String,Description="Previous support vector">
+##FORMAT=<ID=LN,Number=1,Type=Integer,Description="predicted length">
+##FORMAT=<ID=DR,Number=2,Type=Integer,Description="# supporting reference,variant reads in that order">
+##FORMAT=<ID=ST,Number=1,Type=String,Description="Strand of SVs">
+##FORMAT=<ID=QV,Number=1,Type=String,Description="Quality values: if not defined a . otherwise the reported value.">
+##FORMAT=<ID=TY,Number=1,Type=String,Description="Types">
+##FORMAT=<ID=ID,Number=1,Type=String,Description="Variant ID from input.">
+##FORMAT=<ID=RAL,Number=1,Type=String,Description="Reference allele sequence reported from input.">
+##FORMAT=<ID=AAL,Number=1,Type=String,Description="Alternative allele sequence reported from input.">
+##FORMAT=<ID=CO,Number=1,Type=String,Description="Coordinates">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	Broad	MSK	NYGC
+chr1	116831460	broad_SV_306__CD2__VLDLR	N	N[chr9:2694881[	60	PASS	SUPP=1;SUPP_VEC=100;SVLEN=0;SVTYPE=TRA;SVMETHOD=SURVIVOR1.0.7;CHR2=chr9;END=2694881;CIPOS=0,0;CIEND=0,0;STRANDS=++	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NA:114136579:0,99:++:60:TRA:broad_SV_306__CD2__VLDLR:NA:NA:chr1_116831460-chr9_2694881	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN
+chr12	10579529	MSK343971__EIF2S3B__EIF2S3B	N	<INV>	60	PASS	SUPP=1;SUPP_VEC=010;SVLEN=165;SVTYPE=INV;SVMETHOD=SURVIVOR1.0.7;CHR2=chr12;END=10579694;CIPOS=0,0;CIEND=0,0;STRANDS=++	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NA:165:0,99:++:60:INV:MSK343971__EIF2S3B__EIF2S3B:NA:NA:chr12_10579529-chr12_10579694	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN
+chr12	50237412	MSK611575__LIMA1__ADAM7	N	N[chr8:24487004[	60	PASS	SUPP=1;SUPP_VEC=010;SVLEN=0;SVTYPE=TRA;SVMETHOD=SURVIVOR1.0.7;CHR2=chr8;END=24487004;CIPOS=0,0;CIEND=0,0;STRANDS=++	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NA:25750408:0,99:++:60:TRA:MSK611575__LIMA1__ADAM7:NA:NA:chr12_50237412-chr8_24487004	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN
+chr12	73620726	MSK803758__TRHDE__GRM8	N	N[chr7:125624144[	60	PASS	SUPP=1;SUPP_VEC=010;SVLEN=0;SVTYPE=TRA;SVMETHOD=SURVIVOR1.0.7;CHR2=chr7;END=125624144;CIPOS=0,0;CIEND=0,0;STRANDS=++	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NA:52003418:0,99:++:60:TRA:MSK803758__TRHDE__GRM8:NA:NA:chr12_73620726-chr7_125624144	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN
+chr12	116704549	MSK120390__SPRING1__SLC15A4	N	<DEL>	60	PASS	SUPP=3;SUPP_VEC=111;SVLEN=-12090108;SVTYPE=DEL;SVMETHOD=SURVIVOR1.0.7;CHR2=chr12;END=128794657;CIPOS=0,1;CIEND=-1,1;STRANDS=+-	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NA:12090106:0,99:+-:60:DEL:broad_SV_313__SPRING1__SLC15A4:NA:NA:chr12_116704550-chr12_128794656	./.:NA:12090108:0,99:+-:60:DEL:MSK120390__SPRING1__SLC15A4:NA:NA:chr12_116704549-chr12_128794657	./.:NA:12090108:0,99:+-:60:DEL:CTSP-AD18-TTP1-A_7__SPRING1__SLC15A4:NA:NA:chr12_116704550-chr12_128794658
+chr13	42373132	MSK200267__nan__nan	N	<DUP>	60	PASS	SUPP=1;SUPP_VEC=010;SVLEN=383;SVTYPE=DUP;SVMETHOD=SURVIVOR1.0.7;CHR2=chr13;END=42373515;CIPOS=0,0;CIEND=0,0;STRANDS=-+	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NA:383:0,99:-+:60:DUP:MSK200267__nan__nan:NA:NA:chr13_42373132-chr13_42373515	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN
+chr14	105864253	DEL008SUR	N	<DEL>	60	PASS	SUPP=1;SUPP_VEC=100;SVLEN=-289367;SVTYPE=DEL;SVMETHOD=SURVIVOR1.0.7;CHR2=chr14;END=106153620;CIPOS=0,0;CIEND=0,0;STRANDS=+-	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NA:289367:0,99:+-:60:DEL:broad_SV_314__IGHJ4__IGHV3-13:NA:NA:chr14_105864253-chr14_106153620	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN
+chr4	50471141	broad_SV_309__nan__nan	N	<DEL>	60	PASS	SUPP=1;SUPP_VEC=100;SVLEN=-700000;SVTYPE=DEL;SVMETHOD=SURVIVOR1.0.7;CHR2=chr4;END=51171141;CIPOS=0,0;CIEND=0,0;STRANDS=+-	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NA:700000:0,99:+-:60:DEL:broad_SV_309__nan__nan:NA:NA:chr4_50471141-chr4_51171141	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN
+chr5	106683737	MSK271719__nan__nan	N	<DEL>	60	PASS	SUPP=1;SUPP_VEC=010;SVLEN=-220374;SVTYPE=DEL;SVMETHOD=SURVIVOR1.0.7;CHR2=chr5;END=106904111;CIPOS=0,0;CIEND=0,0;STRANDS=+-	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NA:220374:0,99:+-:60:DEL:MSK271719__nan__nan:NA:NA:chr5_106683737-chr5_106904111	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN
+chr8	24487004	TRA0015SUR	N	N[chr12:50237412[	60	PASS	SUPP=2;SUPP_VEC=101;SVLEN=0;SVTYPE=TRA;SVMETHOD=SURVIVOR1.0.7;CHR2=chr12;END=50237414;CIPOS=-2,0;CIEND=-2,0;STRANDS=++	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NA:25750410:0,99:++:60:TRA:broad_SV_310__ADAM7__LIMA1:NA:NA:chr8_24487002-chr12_50237412	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NA:25750410:0,99:++:60:TRA:CTSP-AD18-TTP1-A_5__ADAM7__LIMA1:NA:NA:chr8_24487004-chr12_50237414
+chr8	75857739	MSK418985__nan__nan	N	<DUP>	60	PASS	SUPP=1;SUPP_VEC=010;SVLEN=799;SVTYPE=DUP;SVMETHOD=SURVIVOR1.0.7;CHR2=chr8;END=75858538;CIPOS=0,0;CIEND=0,0;STRANDS=-+	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NA:799:0,99:-+:60:DUP:MSK418985__nan__nan:NA:NA:chr8_75857739-chr8_75858538	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN
+chr8	127736663	MSK435414__MYC__IGHJ6	N	N[chr14:105862937[	60	PASS	SUPP=3;SUPP_VEC=111;SVLEN=0;SVTYPE=TRA;SVMETHOD=SURVIVOR1.0.7;CHR2=chr14;END=105862938;CIPOS=0,16;CIEND=-1,7;STRANDS=++	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NA:21873725:0,99:++:60:TRA:MSK435414__MYC__IGHJ6:NA:NA:chr8_127736663-chr14_105862938	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN
+chr9	21682071	DEL0018SUR	N	<DEL>	60	PASS	SUPP=1;SUPP_VEC=001;SVLEN=-1813052;SVTYPE=DEL;SVMETHOD=SURVIVOR1.0.7;CHR2=chr9;END=23495123;CIPOS=0,0;CIEND=0,0;STRANDS=+-	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NA:1813052:0,99:+-:60:DEL:CTSP-AD18-TTP1-A_6__MTAP__DMRTA1:NA:NA:chr9_21682071-chr9_23495123
+chrX	42653035	MSK579377__nan__nan	N	<DEL>	60	PASS	SUPP=1;SUPP_VEC=010;SVLEN=-1583;SVTYPE=DEL;SVMETHOD=SURVIVOR1.0.7;CHR2=chrX;END=42654618;CIPOS=0,0;CIEND=0,0;STRANDS=+-	GT:PSV:LN:DR:ST:QV:TY:ID:RAL:AAL:CO	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN	./.:NA:1583:0,99:+-:60:DEL:MSK579377__nan__nan:NA:NA:chrX_42653035-chrX_42654618	./.:NaN:0:0,0:--:NaN:NaN:NaN:NAN:NAN:NAN

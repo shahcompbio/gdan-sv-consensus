@@ -10,6 +10,7 @@ import pandas as pd
 sys.path.append('scripts')
 config = yaml.load(open('config.yaml'), Loader=yaml.Loader)
 from make_bedpe_from_svs import get_overlapping_genes, get_downstream_gene, get_upstream_gene, add_gene_names_to_svs
+from make_consensus_bedpe import make_consensus_bedpe
 
 gtf_path = 'results/gtf/protein_coding.gtf.gz'
 fai_path = config['ref']['fai']
@@ -48,3 +49,17 @@ class TestGeneFetching(TestCase):
         svs = add_gene_names_to_svs(svs, gtf, tbx, fai_path)
         self.assertTrue(svs['gene1'].values[0] == 'MYC')
         self.assertTrue(svs['gene2'].values[0] == 'IGHJ6')
+
+class TestConsensus(TestCase):
+    def test_make_consensus_bedpe(self):
+        vcf_path = 'tests/test_data.vcf'
+        sources = ['Broad', 'MSK', 'NYGC']
+        goi = {'BCL2', 'BCL6', 'MYC'}
+        vcf_cols = ['chrom', 'pos', 'id', 'ref', 'alt', 'qual', 'filter', 'info', 'format'] + sources
+        df = pd.read_table(vcf_path, names=vcf_cols, comment='#')
+        bedpe = make_consensus_bedpe(df, sources, goi, consensus_cutoff=2)
+        self.assertTrue(bedpe.iloc[:2]['score'].tolist() == [3, 2])
+        self.assertTrue(bedpe.shape[0] == 3)
+        self.assertTrue(bedpe.iloc[-1]['gene1'] == 'MYC')
+        self.assertTrue(bedpe.iloc[-1]['gene2'] == 'IGHJ6')
+        self.assertTrue(bedpe.iloc[-1]['score'] == 1) # salvage successful
