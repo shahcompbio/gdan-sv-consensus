@@ -43,7 +43,6 @@ def make_consensus_bedpe(df, sources, goi, consensus_cutoff=2):
             gts = dict(zip(fmt, row[source].split(':')))
             if gts['ID'] != 'NaN':
                 cnt += 1
-                #svid, gene1, gene2, strand1, strand2 = gts['ID'].split('__')
                 svid, gene1, gene2 = gts['ID'].split('__')
                 gene1s.add(gene1); gene2s.add(gene2)
                 ngoi += (gene1 in goi or gene2 in goi)
@@ -60,7 +59,7 @@ if __name__ == "__main__":
     vcf_cols += args.sources
     df = pd.read_table(args.vcf, names=vcf_cols, comment='#')
 
-    consensus_cutoff = 2
+    consensus_cutoff = 1
     goi = {'MYC', 'BCL2', 'BCL6'}
     bedpe = make_consensus_bedpe(df, args.sources, goi=goi, consensus_cutoff=consensus_cutoff)
     bedpe.to_csv(args.bedpe, sep='\t', index=False)
