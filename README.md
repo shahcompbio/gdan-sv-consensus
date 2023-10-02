@@ -3,19 +3,23 @@ Created to call consensus SVs from the SV calls of GDAN DLBCL groups.
 
 # Usage
 1. Fix `config.yaml`
+
 - `samples_file`, `metadata` has to be generated
 - `ref` should be relinked to your local references
 
 2. Install prerequisites
+
 Haven't set up a `setup.py` yet, you could just type in
 ```bash
 pip install tabix numpy pandas pybedtools wgs_analysis
 ```
 
 3. Fix global variables in `Snakefile`
+
 You may be interested in fixing `CHROMS`, `SOURCES`, `SAMPLES` to your liking.
 
 4. Run
+
 Now the fun part! A snakemake dry-run is highly recommended.
 ```
 bash run_snakemake.sh
