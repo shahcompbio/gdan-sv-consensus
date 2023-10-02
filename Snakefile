@@ -30,7 +30,7 @@ rule all:
         expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
         expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
         expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
-        expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
+        #expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
         
 rule grep_and_sort_gtf:
     input:
@@ -56,7 +56,7 @@ rule filter_gtf:
         gtf = 'results/gtf/protein_coding.gtf.gz',
         tbi = 'results/gtf/protein_coding.gtf.gz.tbi',
     shell:
-        'cat {input.gtf} | grep -P "protein_coding|protein_id" | bgzip -c > {output.gtf} && '
+        'cat {input.gtf} | grep -P "protein_coding|protein_id" | grep -v "gene_name \\"ENSG" | bgzip -c > {output.gtf} && '
         'tabix -f -p gff {output.gtf}'
 
 def _get_msk_svs_path(wildcards):
@@ -83,12 +83,9 @@ def _get_nygc_svs_path(wildcards):
     else:
         raise ValueError(f'paths={paths} for sample={wildcards.sample}')
 
-def _get_sv_type(row):
-    svtype = row['type']
-    chrom1, chrom2 = row['#chrom1'], row['chrom2']
-    pos1, pos2 = row['end1'], row['end2']
-    coord2 = f'{chrom2}:{pos2}'
-    strands = f"{row.strand1}{row.strand2}"
+def _get_sv_type(svtype, chrom1, chrom2, end1, end2, strand1, strand2):
+    coord2 = f'{chrom2}:{end2}'
+    strands = f"{strand1}{strand2}"
     if svtype == 'TRA':
         if strands == '++':
             alt = f'N]{coord2}]'
@@ -135,6 +132,10 @@ def _get_vcf_meta_and_header(source, genome_version='hg38'):
     return meta_text, header
 
 def write_vcf_from_bedpe(sv_path, out_vcf, source='MSK'):
+    genome_version = config['ref']['genome_version']
+    chroms = refgenome.info.chromosomes
+    if genome_version == 'hg38':
+        chroms = ['chr'+c if not c.startswith('chr') else c for c in chroms]
     with open(out_vcf, 'w') as out:
         meta_text, header = _get_vcf_meta_and_header(source=source, 
                                                      genome_version=config['ref']['genome_version'])
@@ -146,19 +147,24 @@ def write_vcf_from_bedpe(sv_path, out_vcf, source='MSK'):
         for rix, row in svs.iterrows():
             chrom1, chrom2 = row['#chrom1'], row['chrom2']
             start1, start2 = row['start1'], row['start2']
+            end1, end2 = row['end1'], row['end2']
             strand1, strand2 = row['strand1'], row['strand2']
             gene1, gene2 = row['gene1'], row['gene2']
+            if chroms.index(chrom1) > chroms.index(chrom2):
+                chrom1, start1, end1, strand1, gene1, chrom2, start2, end2, strand2, gene2 = (
+                    chrom2, start2, end2, strand2, gene2, chrom1, start1, end1, strand1, gene1
+                )
             svname, svtype = row['name'], row['type']
             ref = 'N'
-            alt = _get_sv_type(row)
+            alt = _get_sv_type(svtype, chrom1, chrom2, end1, end2, strand1, strand2)
             svid = f'{svname}__{gene1}__{gene2}'
             if (chrom1 == chrom2):
                 if start2 < start1:
                     start1, start2 = start2, start1
                     strand1, strand2 = strand2, strand1
             chrom = chrom1
-            pos = start1
-            endpos = start2
+            pos = end1
+            endpos = end2
             svlen = abs(endpos - pos)
             if row['type'] == 'DEL':
                 svlen = -svlen
