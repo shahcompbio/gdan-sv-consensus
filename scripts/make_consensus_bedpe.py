@@ -30,7 +30,7 @@ def make_consensus_bedpe(df, sources, goi, consensus_cutoff=2):
         start1 = end1 - 1
         chrom2, end2, strands = re.search('CHR2=([^;]+);.*END=(\d+);.*STRANDS=([\+\-]+);*', row['info']).groups()
         assert len(strands) == 2, strands
-        strand1, strand2 = strands
+        #strand1, strand2 = strands
         end2 = int(end2)
         start2 = end2 - 1
         fmt = row['format'].split(':')
@@ -43,7 +43,7 @@ def make_consensus_bedpe(df, sources, goi, consensus_cutoff=2):
             gts = dict(zip(fmt, row[source].split(':')))
             if gts['ID'] != 'NaN':
                 cnt += 1
-                svid, gene1, gene2 = gts['ID'].split('__')
+                svid, gene1, gene2, strand1, strand2 = gts['ID'].split('__')
                 gene1s.add(gene1); gene2s.add(gene2)
                 ngoi += (gene1 in goi or gene2 in goi)
                 svids.append(source)

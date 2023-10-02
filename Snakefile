@@ -14,23 +14,24 @@ if not os.path.exists(config['tmp_dir']): subprocess.run(f'mkdir -p {config["tmp
 
 CHROMS = ['chr'+str(c) for c in range(1, 22+1)] + ['chrX', 'chrY']
 SOURCES = ['Broad', 'MSK', 'NYGC']
-SAMPLES = [s.rstrip() for s in open(config['samples_file']).readlines()] #['CTSP-AD18-TTP1-A'] 
-#SAMPLES = ['CTSP-AD18-TTP1-A'] 
+#SAMPLES = [s.rstrip() for s in open(config['samples_file']).readlines()] #['CTSP-AD18-TTP1-A'] 
+SAMPLES = ['CTSP-AD18-TTP1-A'] 
 
 wildcard_constraints:
     source = '|'.join(SOURCES)
 
 rule all:
     input:
-        'results/gtf/protein_coding.gtf.gz',
-        'results/gtf/protein_coding.gtf.gz.tbi',
-        expand('results/{sample}/{sample}.SV_consensus.bedpe', sample=SAMPLES),
-        expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
-        expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
-        expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
-        expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
-        expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
-        #expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
+        expand('results/{sample}/{sample}.SV_union.bedpe', sample=SAMPLES),
+#        'results/gtf/protein_coding.gtf.gz',
+#        'results/gtf/protein_coding.gtf.gz.tbi',
+#        expand('results/{sample}/{sample}.SV_consensus.bedpe', sample=SAMPLES),
+#        expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
+#        expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
+#        expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
+#        expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
+#        expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
+#        #expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
         
 rule grep_and_sort_gtf:
     input:
@@ -157,7 +158,7 @@ def write_vcf_from_bedpe(sv_path, out_vcf, source='MSK'):
             svname, svtype = row['name'], row['type']
             ref = 'N'
             alt = _get_sv_type(svtype, chrom1, chrom2, end1, end2, strand1, strand2)
-            svid = f'{svname}__{gene1}__{gene2}'
+            svid = f'{svname}__{gene1}__{gene2}__{strand1}__{strand2}'
             if (chrom1 == chrom2):
                 if start2 < start1:
                     start1, start2 = start2, start1
@@ -169,7 +170,7 @@ def write_vcf_from_bedpe(sv_path, out_vcf, source='MSK'):
             if row['type'] == 'DEL':
                 svlen = -svlen
             strands = strand1 + strand2
-            info = f'IMPRECISE;SVTYPE={svtype};END={endpos};STRAND={strands};CHR2={chrom2}'
+            info = f'IMPRECISE;SVTYPE={svtype};END={endpos};STRANDS={strands};CHR2={chrom2}'
             info += f';GENE1={gene1};GENE2={gene2};SOURCE={source}'
             qual = 60
             flt = 'PASS'
@@ -258,4 +259,15 @@ rule create_consensus_bedpe:
         sources = ' '.join(SOURCES),
     shell:
         'python scripts/make_consensus_bedpe.py '
+        '-i {input.vcf} -o {output.bedpe} -s {params.sources}'
+
+rule create_union_bedpe:
+    input:
+        vcf = "results/{sample}/{sample}.SV_union.vcf",
+    output:
+        bedpe = 'results/{sample}/{sample}.SV_union.bedpe',
+    params:
+        sources = ' '.join(SOURCES),
+    shell:
+        'python scripts/make_union_bedpe.py '
         '-i {input.vcf} -o {output.bedpe} -s {params.sources}'
