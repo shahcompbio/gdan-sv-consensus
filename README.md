@@ -38,8 +38,8 @@ The output BEDPE files created by this pipeline has the following columns:
 
 ## Gene annotation of a breakpoint
 1. For `DEL` and `DUP`
-- For breakpoint 1, closest downstream gene that is encompassed by the deletion/duplication (i.e. has overlapping coordinates with the breakpoint pair interval) is annotated
-- For breakpoint 2, closest upstream gene that is encompassed by the deletion/duplication is annotated
+- For breakpoint 1, the overlapping or the closest downstream gene that is encompassed by the deletion/duplication (i.e. has overlapping coordinates with the breakpoint pair interval) is annotated
+- For breakpoint 2, the overlapping or the closest upstream gene that is encompassed by the deletion/duplication is annotated
 2. For `INV` and `TRA`
-- If a breakpoint orientation is upstream (i.e. '+'), the closest upstream gene to the breakpoint is annotated
-- If a breakpoint orientation is downstream (i.e. '-'), the closest downstream gene to the breakpoint is annotated
+- If a breakpoint orientation is upstream (i.e. '+'), the overlapping or the closest upstream gene to the breakpoint is annotated
+- If a breakpoint orientation is downstream (i.e. '-'), the overlapping or the closest downstream gene to the breakpoint is annotated
