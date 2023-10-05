@@ -9,8 +9,6 @@ Created to call consensus SVs from the SV calls of GDAN DLBCL groups.
 
 ## 2. Install prerequisites
 
-### `snakemake`
-
 - Highly recommended that you install snakemake using the best practices in https://snakemake.readthedocs.io/en/stable/getting_started/installation.html<br>
 - Since I haven't set up a `setup.py` yet, you could just type the following after having installed snakemake.
 ```bash
