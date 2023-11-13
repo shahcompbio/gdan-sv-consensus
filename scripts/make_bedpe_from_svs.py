@@ -160,7 +160,7 @@ def get_upstream_gene(gtf, brks, fai_path):
                           k=1, # look for one gene
                           fu=True, # get upstream
                           D="a") # report distance from "a[bed]"        
-    gene_info = [g[11] for g in closest if pos1 <= pos2+int(g[-1])] # dist g[-1] is negative
+    gene_info = [g[11] for g in closest if pos1 <= pos2-abs(int(g[-1]))] # dist g[-1] is negative
     gene_name = _extract_gene_name(gene_info)
     return gene_name
 
@@ -189,7 +189,7 @@ def get_downstream_gene(gtf, brks, fai_path):
                           k=1, # look for one gene
                           fd=True, # get downstream
                           D="a") # report distance from "a[bed]"        
-    gene_info = [g[11] for g in closest if pos1+int(g[-1]) <= pos2]
+    gene_info = [g[11] for g in closest if pos1+abs(int(g[-1])) <= pos2] # g[-1] is positive
     gene_name = _extract_gene_name(gene_info)
     return gene_name
 
