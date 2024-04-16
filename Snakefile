@@ -22,16 +22,16 @@ wildcard_constraints:
 
 rule all:
     input:
-        expand('results/{sample}/{sample}.SV_union.bedpe', sample=SAMPLES),
+        # expand('results/{sample}/{sample}.SV_union.bedpe', sample=SAMPLES),
         'results/gtf/protein_coding.gtf.gz',
         'results/gtf/protein_coding.gtf.gz.tbi',
-        expand('results/{sample}/{sample}.SV_consensus.bedpe', sample=SAMPLES),
-        expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
-        expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
-        expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
-        expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
-        expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
-        expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
+        # expand('results/{sample}/{sample}.SV_consensus.bedpe', sample=SAMPLES),
+        # expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
+        # expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
+        # expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
+        # expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
+        # expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
+        # expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
         
 rule grep_and_sort_gtf:
     input:

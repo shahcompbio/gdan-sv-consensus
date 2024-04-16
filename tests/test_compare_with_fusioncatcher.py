@@ -32,7 +32,9 @@ def test_get_bedpe_consensus():
 
 class TestFusionCatcher:
     sample = 'CTSP-ACY0-TTP1-A-1-1-R-A78Z-41'
-    fc = FusionCatcher(sample)
+    fusioncatcher_dir = '../data/rnaseq/fusions/fusioncatcher'
+    bedpe_dir = '../data/wgs/breakpoints/bedpe_consensus'
+    fc = FusionCatcher(sample, bedpe_dir, fusioncatcher_dir)
 
     def test_init(self):
         fc = self.fc
