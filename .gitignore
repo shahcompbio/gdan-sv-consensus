@@ -4,3 +4,4 @@ __pycache__/
 .snakemake/
 logs/
 results/
+*.ipynb
