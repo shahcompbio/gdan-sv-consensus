@@ -4,7 +4,8 @@ cmd="$cmd --configfile config.yaml"
 cmd="$cmd --cluster-generic-submit-cmd \"$cluster_fmt\""
 cmd="$cmd --profile profile/"
 cmd="$cmd --singularity-args \"--bind /data1 --bind /home\""
-# cmd="$cmd --dryrun"
+cmd="$cmd --dryrun"
+cmd="$cmd --rulegraph"
 cmd="$cmd -p"
 echo $cmd
 eval $cmd

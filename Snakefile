@@ -13,8 +13,8 @@ if not os.path.exists(config['log_dir']): subprocess.run(f'mkdir -p {config["log
 if not os.path.exists(config['tmp_dir']): subprocess.run(f'mkdir -p {config["tmp_dir"]}', shell=True)
 
 CHROMS = ['chr'+str(c) for c in range(1, 22+1)] + ['chrX', 'chrY']
-#SOURCES = ['Broad', 'MSK', 'NYGC']
-SOURCES = ['MSK']
+SOURCES = ['Broad', 'MSK', 'NYGC']
+# SOURCES = ['MSK']
 SAMPLES = [s.rstrip() for s in open(config['samples_file']).readlines()] #['CTSP-AD18-TTP1-A'] 
 #SAMPLES = ['CTSP-AD18-TTP1-A'] 
 
@@ -26,13 +26,13 @@ rule all:
         # expand('results/{sample}/{sample}.SV_union.bedpe', sample=SAMPLES),
         #'results/gtf/protein_coding.gtf.gz',
         #'results/gtf/protein_coding.gtf.gz.tbi',
-        # expand('results/{sample}/{sample}.SV_consensus.bedpe', sample=SAMPLES),
+        expand('results/{sample}/{sample}.SV_consensus.bedpe', sample=SAMPLES),
         # expand("results/{sample}/{sample}.SV_union.report", sample=SAMPLES),
         # expand("results/{sample}/{sample}.SV_union.venn.png", sample=SAMPLES),
         # expand("results/{sample}/{sample}.SV_union.vcf", sample=SAMPLES),
         # expand('results/{sample}/{sample}.vcf_list.txt', sample=SAMPLES),
         # expand('results/{sample}/{sample}.{source}.vcf', sample=SAMPLES, source=SOURCES),
-        expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
+        # expand('results/{sample}/{sample}.{source}.bedpe', sample=SAMPLES, source=SOURCES),
         
 rule grep_and_sort_gtf:
     input:

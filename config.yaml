@@ -1,14 +1,14 @@
 samples_file: resources/samples.txt
 metadata: 
     MSK: resources/metadata.MSK.tsv
-    NYGC: /juno/work/shah/users/chois7/GDAN/DLBCL/downloads/svs/nygc
-    Broad: /juno/work/shah/users/chois7/GDAN/DLBCL/downloads/svs/broad/All_Pairs.dRanger_etc.filtered_SV.138_pairs.with_tumor_submitter_id.in_bedpe_format.tsv
+    NYGC: ../data/svs/nygc
+    Broad: ../data/svs/broad/All_Pairs.dRanger_etc.filtered_SV.138_pairs.with_tumor_submitter_id.in_bedpe_format.tsv
 ref:
     genome_version: "hg38"
-    gtf: /rtsess01/compute/juno/shah/users/chois7/projects/GDAN/DLBCL/data/genCode/gencode.v45.basic.annotation.gtf.gz
-    fai: /data1/shahs3/isabl_data_lake/assemblies/WGS-GRCh38-GDC/human/GRCh38.d1.vd1.fa.fai
+    gtf: ../data/gencode/gencode.v45.basic.annotation.gtf.gz
+    fai: ../assemblies/WGS-GRCh38-GDC/human/GRCh38.d1.vd1.fa.fai
 image:
-    survivor: /juno/work/shah/users/chois7/singularity/sif/survivor.sif
+    survivor: resources/survivor.sif
 log_dir: logs
 tmp_dir: tmp
 
