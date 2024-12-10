@@ -6,7 +6,7 @@ metadata:
 ref:
     genome_version: "hg38"
     gtf: /rtsess01/compute/juno/shah/users/chois7/projects/GDAN/DLBCL/data/genCode/gencode.v45.basic.annotation.gtf.gz
-    fai: /rtsess01/compute/juno/shah/users/chois7/reference/genome/GRCh38.d1.vd1/GRCh38.d1.vd1.fa.fai
+    fai: /data1/shahs3/isabl_data_lake/assemblies/WGS-GRCh38-GDC/human/GRCh38.d1.vd1.fa.fai
 image:
     survivor: /juno/work/shah/users/chois7/singularity/sif/survivor.sif
 log_dir: logs

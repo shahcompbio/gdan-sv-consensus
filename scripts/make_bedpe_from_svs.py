@@ -51,6 +51,7 @@ def get_msk_svs(path):
     svs['start2'] = svs['end2'] - 1
     svs['type'] = svs['type'].map(type_map)
     svs['name'] = 'MSK' + svs['name'].astype(str)
+    svs['score'] = svs['num_split'] + svs['num_unique_reads']
     for sv_col in sv_cols:
         if sv_col not in svs.columns:
             svs[sv_col] = '.'
